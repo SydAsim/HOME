@@ -73,6 +73,7 @@ export const DESIGNS = [
  {id:3,name:'Forward bedroom plan',summary:'Mid-side bedrooms · rear bathrooms · left galley kitchen',detail:'Both bedrooms move forward along the sides, with private bathrooms behind them. A long kitchen occupies the rear-left centre and a 6½-foot-wide gallery runs beside it. Lounge and dining face the front.'},
  {id:4,name:'Rear kitchen plan',summary:'Bedrooms farther forward · larger rear baths · rear kitchen',detail:'The kitchen spans the rear centre. Bedrooms sit farther forward along both sides and their bathrooms move behind them. A wide central gallery leads to a large front TV lounge; dining sits in the left centre.'}
 ];
+DESIGNS.push({id:5,name:'Private kitchen · social centre',summary:'Side bedrooms · merged lounge + dining · screened kitchen',detail:'R1 and R2 sit on opposite sides, each with a private ensuite. The TV lounge and dining share one open front room. A separate rear kitchen is entered through a turning service lobby and a solid privacy door, keeping cooking out of the guest sightline. Bedroom doors open onto clear circulation, without passing through the kitchen.'});
 const ORIGINAL_FLOORS=JSON.parse(JSON.stringify(FLOORS));
 const resizeRoom=(r,rect)=>{r.rect=rect;r.width=rect[1]-rect[0];r.depth=rect[3]-rect[2];r.area=r.width*r.depth;};
 function applyPreviousDesign(value){
@@ -128,7 +129,7 @@ function applyPreviousDesign(value){
 
 
 export function applyDesign(value){
- const n=Number(value);applyPreviousDesign(n);
+ const n=Number(value);if(n===5)return applyDesignFive();applyPreviousDesign(n);
  if(n===1){for(const key of ['ground','first']){FLOORS[key].furniture.custom=false;FLOORS[key].bedPairs=[['bed-west','bath-shared'],['bed-primary','bath-primary']];}return DESIGNS[0];}
  const layouts={
   2:{bed1:[-6.5,7,-15.25,-2.75],bed2:[7.5,20.5,-15.25,-2.75],bath1:[-13.5,-7,-15.25,-7.25],bath2:[13.5,20.5,-2.25,5.75],kitchen:[-20.5,-14,-15.25,-2.75],living:[7.5,20.5,6.25,15.25],dining:[-1.5,7,4.75,15.25],gallery:[-9.5,13,-2.25,4.25],entry:[-13.5,-7,-6.75,-2.75],parking:-2.25,
@@ -180,4 +181,37 @@ export function applyDesign(value){
  if(n===2||n===4){const bath=b.rooms.find(r=>r.id==='bath-spa'),other=b.rooms.find(r=>r.id===(n===2?'prayer':'study')),old=bath.rect.slice();resizeRoom(bath,other.rect.slice());resizeRoom(other,old);bath.view={point:[bath.rect[0]+2,bath.rect[2]+1.5],look:[bath.rect[0]+3,bath.rect[3]-2]};other.view={point:[other.rect[0]+2,other.rect[2]+1.5],look:[other.rect[0]+3,other.rect[3]-2]};b.furniture.fitRooms=true;}
  for(const rr of b.rooms)if(rr.badges[0]?.includes('×'))rr.badges[0]=feet(rr.width)+' × '+feet(rr.depth);
  return DESIGNS[n-1];
+}
+
+
+function applyDesignFive(){
+ applyDesign(4);
+ for(const key of ['ground','first']){
+  const f=FLOORS[key],find=id=>f.rooms.find(r=>r.id===id);
+  resizeRoom(find('kitchen'),[-6.5,7,-15.25,-6.25]);
+  find('kitchen').view={point:[-3.5,-7.6],look:[1,-12]};
+  find('kitchen').description='A separate 13½ × 9 ft kitchen behind an opaque door and a turning service lobby. Guests in the shared lounge cannot look through the closed kitchen door. The lobby provides easy family access without entering either bedroom.';
+  find('kitchen').badges=['13½′ × 9′','Enclosed kitchen','Solid privacy door'];
+  resizeRoom(find('gallery'),[.5,7,-5.75,3.5]);
+  find('gallery').view={point:[3,1],look:[3,-3]};
+  find('gallery').description='A 6½-foot-wide route connects the shared room to R2 and the private kitchen lobby. R1 opens off the short stair landing to the left. Neither bedroom requires walking through the kitchen.';
+  find('gallery').badges=['6½′ wide','Easy access to R1 / R2'];
+  find('living').name='TV lounge + dining';
+  find('living').description='One open 22 × 11¼ ft social room: family TV seating on the right and dining on the left, with no dividing wall. Guests enter this shared room directly. A clear central route leads to both side bedrooms and the screened kitchen lobby.';
+  find('living').badges=['22′ × 11¼′','Merged TV + dining','Guest-friendly layout'];
+  find('living').view={point:[7.7,6],look:[13,10]};
+  find('bed-west').name=key==='first'?'R1 — upstairs bedroom':'R1 — bedroom';
+  find('bed-primary').name=key==='first'?'R2 — upstairs bedroom':'R2 — primary bedroom';
+  find('bed-west').description='The left-side queen bedroom, reached from the clear landing beside the shared lounge. Its bathroom is private and behind the bedroom. No route through the kitchen is needed.';
+  find('bed-primary').description='The right-side king bedroom, reached directly from the wide central passage. Its bathroom is private and behind the bedroom. No route through the kitchen is needed.';
+  find('bath-shared').name='R1 attached bathroom';find('bath-primary').name='R2 attached bathroom';
+  f.rooms=f.rooms.filter(r=>r.id!=='family-dining');
+  f.rooms.push(room('service-lobby','Screened kitchen lobby','hall',-6.5,0,-5.75,-.5,'A private turning lobby separates the kitchen from guest seating. Enter from the side of the wide passage, turn left, then go through the solid kitchen door.',['6½′ × 5¼′','Turning approach','Kitchen privacy'],{point:[-2.0,-2.1],look:[-3.5,-6]}));
+  f.walls=f.walls.filter(wall=>!(wall.a[1]===-9.75&&wall.b[1]===-9.75)&&!(wall.a[0]===.25&&wall.b[0]===.25));
+  f.walls.push({...w([-6.5,-6],[7,-6],[d(-3.5,3.5)]),privacy:true},w([.25,-5.75],[.25,-.25],[d(-2.6,3.5)]),w([-6.5,-.25],[0,-.25]));
+  f.furniture.merged=true;f.furniture.style=5;f.furniture.dining=[3.6,9.6];
+  f.subtitle='Design 5 · side bedrooms · merged lounge + dining · private kitchen';
+ }
+ FLOORS.basement.subtitle='Design 5 · retains the complete Design 4 basement arrangement';
+ return DESIGNS[4];
 }

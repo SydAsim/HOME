@@ -21,7 +21,7 @@ scene=new THREE.Scene();
 for(const id of Object.keys(FLOORS)) buildFloor(id);
 buildTerrain();
 function rebuildForTest(n){disposeFloorModels();state.design=n;applyDesign(n);for(const id of Object.keys(FLOORS))buildFloor(id);}
-export {FLOORS,groups,colliders,furnitureBlocks,canWalk,state,terrain,pedestrianGate,PLOT,rebuildForTest};
+export {FLOORS,groups,colliders,furnitureBlocks,canWalk,state,terrain,pedestrianGate,PLOT,rebuildForTest,privacyDoors};
 `;
 const temporary=path.join('/tmp',`courtyard-model-${process.pid}.mjs`);
 await fs.writeFile(temporary,code);
@@ -30,7 +30,7 @@ await fs.unlink(temporary);
 const {FLOORS,groups,colliders,furnitureBlocks,state,canWalk}=model;
 const assert=(test,message)=>{if(!test)throw Error(message);};
 const placementSignatures=new Set();
-for(let design=1;design<=4;design++){
+for(let design=1;design<=5;design++){
 if(design>1)model.rebuildForTest(design);
 console.log(`Checking Design ${design}`);
 let rooms=0,meshCount=0;
@@ -41,6 +41,7 @@ for(const [id,f]of Object.entries(FLOORS)){
     assert(f.rooms.filter(r=>r.type==='bedroom').length===2,`${id}: two bedrooms required`);
     assert(f.rooms.filter(r=>r.type==='bathroom').length===2,`${id}: two bathrooms required`);
     assert(f.rooms.filter(r=>r.type==='kitchen').length===1,`${id}: separate kitchen required`);
+    if(design===5){assert(model.privacyDoors.length===2&&model.privacyDoors.every(p=>p.group.rotation.y===0),'Kitchen privacy doors must start closed');assert(!f.rooms.some(r=>r.id==='family-dining'),'Design 5 must merge dining into the lounge');assert(f.furniture.merged,'Design 5 merged room furniture missing');assert(f.walls.some(w=>w.privacy&&w.openings[0].type==='door'),'Design 5 opaque kitchen door missing');assert(f.rooms.find(r=>r.id==='service-lobby'),'Design 5 turning kitchen lobby missing');}
     const gallery=f.rooms.find(r=>r.id==='gallery');assert(Math.min(gallery.width,gallery.depth)===6.5,`${id}: gallery must be 6.5 ft clear`);for(const block of furnitureBlocks[id])assert(Math.min(gallery.rect[1],block.x2)<=Math.max(gallery.rect[0],block.x1)||Math.min(gallery.rect[3],block.z2)<=Math.max(gallery.rect[2],block.z1),`${id}: furniture blocks the wide gallery`);
     for(const r of f.rooms.filter(r=>r.type==='bedroom'))assert(r.area>=162.4,`${id}/${r.id}: bedroom too small`);
   }
@@ -58,6 +59,11 @@ for(const [id,f]of Object.entries(FLOORS)){
     const [sx,sz]=cell(start),seen=new Uint8Array(nx*nz),queue=[[sx,sz]];seen[sz*nx+sx]=1;
     for(let q=0;q<queue.length;q++){const [x,z]=queue[q];for(const [dx,dz]of[[1,0],[-1,0],[0,1],[0,-1]]){const xx=x+dx,zz=z+dz;if(xx<0||xx>=nx||zz<0||zz>=nz||seen[zz*nx+xx])continue;if(canWalk(minX+xx*step,minZ+zz*step)){seen[zz*nx+xx]=1;queue.push([xx,zz]);}}}
     for(const r of walkRooms){const[x,z]=cell(r.view.point);assert(seen[z*nx+x],`${id}/${r.id}: no walkable route from the main landing`);}
+    if(design===5&&id!=='basement'){
+      const kitchen=f.rooms.find(r=>r.id==='kitchen').rect,seenNoKitchen=new Uint8Array(nx*nz),safeQueue=[[sx,sz]];seenNoKitchen[sz*nx+sx]=1;
+      for(let q=0;q<safeQueue.length;q++){const[x,z]=safeQueue[q];for(const[dx,dz]of[[1,0],[-1,0],[0,1],[0,-1]]){const xx=x+dx,zz=z+dz;if(xx<0||xx>=nx||zz<0||zz>=nz||seenNoKitchen[zz*nx+xx])continue;const px=minX+xx*step,pz=minZ+zz*step;if(px>kitchen[0]&&px<kitchen[1]&&pz>kitchen[2]&&pz<kitchen[3])continue;if(canWalk(px,pz)){seenNoKitchen[zz*nx+xx]=1;safeQueue.push([xx,zz]);}}}
+      for(const bedroom of f.rooms.filter(r=>r.type==='bedroom')){const[x,z]=cell(bedroom.view.point);assert(seenNoKitchen[z*nx+x],`${id}: bedroom access must avoid the kitchen`);}
+    }
     console.log(`${f.name}: all ${walkRooms.length} room entry points connected through doorways.`);
   }
 }
